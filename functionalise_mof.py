@@ -166,3 +166,142 @@ def translate_replace_pattern(replace_pattern, search_instance):
         replace_pattern[i].position[2] += dz
 
     return replace_pattern
+
+def replace_pattern_orient(search_instance, replace_pattern):
+
+    rt = 0.01; # rotation tolerance error, in radians
+    PI = 3.14159265359
+
+    r_pivot_atom_index = replace_pattern[0].index
+
+    s_numatoms = search_instance.get_global_number_of_atoms()
+    r_numatoms = replace_pattern.get_global_number_of_atoms()
+
+    s_first_atom_pos = search_instance[0].position
+    s_last_atom_pos = search_instance[s_numatoms-1].position
+    s_second_atom_pos = search_instance[1].position
+
+    r_first_atom_pos = replace_pattern[0].position
+    r_last_atom_pos = replace_pattern[r_numatoms-1].position
+    r_second_atom_pos = replace_pattern[1].position
+
+    # Define the vectors
+
+    # first - f, second - c, last - l, s - search, r - replace
+    # SF_SL - vector between the first atom and the last atom
+    # in the instance of the search pattern in the structure
+
+    SF_SL = np.empty([3])
+    SF_SS = np.empty([3])
+    RF_RL = np.empty([3])
+    RF_RS = np.empty([3])
+
+    # Vectors on the search structure
+    SF_SL[0] = s_last_atom_pos[0] - s_first_atom_pos[0]
+    SF_SL[1] = s_last_atom_pos[1] - s_first_atom_pos[1]
+    SF_SL[2] = s_last_atom_pos[2] - s_first_atom_pos[2]
+
+    SF_SS[0] = s_second_atom_pos[0] - s_first_atom_pos[0]
+    SF_SS[1] = s_second_atom_pos[1] - s_first_atom_pos[1]
+    SF_SS[2] = s_second_atom_pos[2] - s_first_atom_pos[2]
+
+    # Vectors on the replace
+    RF_RL[0] = r_last_atom_pos[0] - r_first_atom_pos[0]
+    RF_RL[1] = r_last_atom_pos[1] - r_first_atom_pos[1]
+    RF_RL[2] = r_last_atom_pos[2] - r_first_atom_pos[2]
+
+    RF_RS[0] = r_second_atom_pos[0] - r_first_atom_pos[0]
+    RF_RS[1] = r_second_atom_pos[1] - r_first_atom_pos[1]
+    RF_RS[2] = r_second_atom_pos[2] - r_first_atom_pos[2]
+
+    # Use the dot-product formula to find the angle between the vectors: SF-SL & RF-RL
+
+    arg = np.dot(SF_SL, RF_RL) / (np.linalg.norm(SF_SL) * np.linalg.norm(RF_RL))
+
+    if arg > 1:
+        arg = 1
+    if arg < -1:
+        arg = -1
+
+    theta = math.acos(arg) # Angle beteen two vectors: SF-SL & RF-RL in Radians
+
+    if theta > rt and theta < PI - rt: # Vectors are not parallel or anti-parallel
+
+        # Find the axis of rotation by taking the cross-product of: SF-SL & RF-RL
+
+        crs = np.cross(SF_SL, RF_RL)
+        mag = np.linalg.norm(crs)
+        mag *= -1
+        crs[0] *= (1.0 / mag)
+        crs[1] *= (1.0 / mag)
+        crs[2] *= (1.0 / mag)
+        rotate_replace_pattern(replace_pattern, r_pivot_atom_index, crs, theta)
+
+    elif theta < rt:
+        # Vectors are parallel, do nothing
+        pass
+
+    else: # Vectors are anti-parallel - rotate by 180 degrees
+        # Now we can rotate by an arbitary normal vector. We can generate an arbitrary normal vector
+        # by taking the cross-product of RF_RS with RF_RL
+        crs = np.cross(RF_RS, RF_RL)
+        mag = np.linalg.norm(crs)
+        crs[0] *= (-1.0 / mag)
+        crs[1] *= (-1.0 / mag)
+        crs[2] *= (-1.0 / mag)
+        # Now rotate by 180 degrees
+        rotate_replace_pattern(replace_pattern, r_pivot_atom_index, crs, theta)
+
+    # Update fgroup vectors after rotation
+    r_first_atom_pos = replace_pattern[0].position
+    r_last_atom_pos = replace_pattern[r_numatoms-1].position
+    r_second_atom_pos = replace_pattern[1].position
+
+    RF_RL[0] = r_last_atom_pos[0] - r_first_atom_pos[0]
+    RF_RL[1] = r_last_atom_pos[1] - r_first_atom_pos[1]
+    RF_RL[2] = r_last_atom_pos[2] - r_first_atom_pos[2]
+
+    RF_RS[0] = r_second_atom_pos[0] - r_first_atom_pos[0]
+    RF_RS[1] = r_second_atom_pos[1] - r_first_atom_pos[1]
+    RF_RS[2] = r_second_atom_pos[2] - r_first_atom_pos[2]
+
+    # Next - twist rotation
+
+    normS = np.cross(SF_SL, SF_SS)
+    normR = np.cross(RF_RL, RF_RS)
+
+    arg = np.dot(normS, normR) / (np.linalg.norm(normS) * np.linalg.norm(normR))
+
+    if arg > 1:
+        arg = 1
+    if arg < -1:
+        arg = -1
+
+    theta = math.acos(arg)
+
+    if theta > rt and theta < PI - rt: # Vectors are not parallel or anti-parallel
+
+        # Find the axis of rotation by taking the cross-product of: SF-SL & RF-RL
+
+        crs = np.cross(normS, normR)
+        mag = np.linalg.norm(crs)
+        mag *= -1
+        crs[0] *= (1.0 / mag)
+        crs[1] *= (1.0 / mag)
+        crs[2] *= (1.0 / mag)
+        rotate_replace_pattern(replace_pattern, r_pivot_atom_index, crs, theta)
+
+    elif theta < rt:
+        # Vectors are parallel, do nothing
+        pass
+
+    else: # Rotate around SF_SL vector
+
+        crs = SF_SL
+        mag = np.linalg.norm(crs)
+        crs[0] *= (1.0 / mag)
+        crs[1] *= (1.0 / mag)
+        crs[2] *= (1.0 / mag)
+        # Now rotate by 180 degrees
+        rotate_replace_pattern(replace_pattern, r_pivot_atom_index, crs, theta)
+    
