@@ -304,4 +304,26 @@ def replace_pattern_orient(search_instance, replace_pattern):
         crs[2] *= (1.0 / mag)
         # Now rotate by 180 degrees
         rotate_replace_pattern(replace_pattern, r_pivot_atom_index, crs, theta)
-    
+
+structure = io.read("HKUST-1_withbonds.cif")
+search_pattern = io.read("HKUST-1_benzene.xyz")
+
+match_indices, match_atoms = find_pattern_in_structure(structure, search_pattern)
+
+replace_pattern = []
+for i in range(len(match_atoms)):
+    replace_pattern.append(io.read("HKUST-1_benzene.xyz"))
+
+translate_molecule_origin(search_pattern)
+
+for i in range(len(replace_pattern)):
+    translate_molecule_origin(replace_pattern[i])
+
+for i in range(len(replace_pattern)):
+    replace_pattern_orient(search_pattern, replace_pattern[i])
+
+for i in range(len(replace_pattern)):
+    replace_pattern_orient(match_atoms[i], replace_pattern[i])
+
+for i in range(len(replace_pattern)):
+    translate_replace_pattern(replace_pattern[i], match_atoms[i])
