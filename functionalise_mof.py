@@ -145,3 +145,24 @@ def translate_molecule_origin(pattern):
         pattern[i].position[2] += dz
 
     return pattern
+
+def translate_replace_pattern(replace_pattern, search_instance):
+
+    # Translate the molecule so that the 0,0,0 coordinate in the replace pattern
+    # is at the position of the first atom found in the search pattern
+
+    numatoms = replace_pattern.get_global_number_of_atoms()
+    first_atom_position = replace_pattern[0].position
+    position = search_instance[0].position
+
+
+    dx = position[0] - first_atom_position[0]
+    dy = position[1] - first_atom_position[1]
+    dz = position[2] - first_atom_position[2]
+
+    for i in range(numatoms):
+        replace_pattern[i].position[0] += dx
+        replace_pattern[i].position[1] += dy
+        replace_pattern[i].position[2] += dz
+
+    return replace_pattern
